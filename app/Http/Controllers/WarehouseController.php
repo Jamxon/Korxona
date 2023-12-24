@@ -77,13 +77,10 @@ class WarehouseController extends Controller
             $product = Product::where('product_name', $productInfo['name'])->first();
 
             if ($product) {
-                // Calculate required materials for the product
                 $requiredMaterials = $this->calculateRequiredMaterials($product, $productInfo['quantity']);
 
-                // Check warehouse stock for each material
                 $materialsInfo = $this->checkWarehouseStock($requiredMaterials);
 
-                // Prepare response structure
                 $result[] = [
                     'product_name' => $product->product_name,
                     'product_qty' => $productInfo['quantity'],
@@ -99,7 +96,6 @@ class WarehouseController extends Controller
     {
         $requiredMaterials = [];
 
-        // Fetch materials required for the product
         $productMaterials = Product_material::where('product_id', $product->id)->get();
 
         foreach ($productMaterials as $productMaterial) {
@@ -117,7 +113,6 @@ class WarehouseController extends Controller
         $materialsInfo = [];
 
         try {
-            // Start a database transaction
             \DB::beginTransaction();
 
             foreach ($requiredMaterials as $requiredMaterial) {
@@ -126,16 +121,11 @@ class WarehouseController extends Controller
                 if ($material) {
                     $warehouse = Warehouse::where('material_id', $material->id)->first();
                     if ($warehouse) {
-                        // Calculate available quantity considering reserved quantities
                         $availableQuantity = max(0, $warehouse->remainder - $this->calculateReservedQuantity($material->id));
 
-                        // Calculate the actual quantity to be used for the current product
                         $actualQuantity = min($requiredMaterial['quantity'], $availableQuantity);
 
-                        // Update reserved quantity for future products atomically
                         $this->updateReservedQuantity($material->id, $actualQuantity);
-//                        $warehouse->remainder = $warehouse->remainder - $requiredMaterial['quantity'];
-//                        $warehouse->save();
 
                         $materialsInfo[] = [
                             'warehouse_id' => $warehouse->id,
@@ -144,22 +134,15 @@ class WarehouseController extends Controller
                             'price' => $warehouse->price,
                         ];
                     } else {
-                        // Log an error if the warehouse is not found for the material
                         \Log::error('Warehouse not found for material ID: ' . $material->id);
                     }
                 }
             }
 
-            // Commit the transaction
             \DB::commit();
         } catch (\Exception $e) {
-            // Rollback the transaction in case of an exception
             \DB::rollBack();
 
-            // Handle the exception, log, or throw a more specific exception
-            // ...
-
-            // Debugging: Log the exception message
             \Log::error('Exception: ' . $e->getMessage());
         }
 
@@ -169,17 +152,11 @@ class WarehouseController extends Controller
 
     private function calculateReservedQuantity($materialId)
     {
-        // Calculate the total reserved quantity for the material across all products
-        // You may need to implement this based on your database structure
-        // Here is a simplified example assuming a reserved_quantity field in the material table
         return Product_material::where('material_id', $materialId)->value('quantity');
     }
 
     private function updateReservedQuantity($materialId, $quantity)
     {
-        // Update reserved quantity for the material in the database
-        // You may need to implement this based on your database structure
-        // Here is a simplified example assuming a reserved_quantity field in the material table
         Material::where('id', $materialId)->increment('reserved_quantity', $quantity);
     }
 
